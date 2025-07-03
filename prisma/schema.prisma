@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum USER_ACTIVITIES {
+  DONOR
+  RECEIVER
+}
+
+enum USER_ROLES {
+  ADMIN
+  USER
+}
+
+model User {
+  id           String           @id @default(uuid()) @db.Uuid()
+  first_name   String
+  last_name    String
+  password     String
+  email        String           @unique()
+  phone_number String           @unique()
+  role         USER_ROLES?      @default(USER)
+  activities   USER_ACTIVITIES?
+  //
+  created_at   DateTime         @default(now())
+  updated_at   DateTime         @updatedAt
+  deleted_at   DateTime?
+  //
+  donations    Donation[]
+  payment      Payment[]
+  wallet       Wallet[]
+  campaigns    Campaign[]
+  ratings      Rating[]
+
+  @@map("users")
+}
+
+enum DONATION_STATUS {
+  PENDING
+  FAILED
+  REJECTED
+  SUCCESS
+}
+
+model Donation {
+  id          String          @id @default(uuid()) @db.Uuid()
+  amount      Int
+  status      DONATION_STATUS @default(PENDING)
+  //
+  created_at  DateTime        @default(now())
+  updated_at  DateTime        @updatedAt
+  deleted_at  DateTime?
+  //
+  user_id     String          @db.Uuid()
+  user        User            @relation(fields: [user_id], references: [id])
+  campaign_id String          @db.Uuid()
+  campaign    Campaign        @relation(fields: [campaign_id], references: [id])
+  payment     Payment[]
+
+  @@map("donations")
+}
+
+enum CAMPAIGN_STATUS {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Campaign {
+  id            String          @id @default(uuid()) @db.Uuid()
+  title         String
+  story         String
+  record        String
+  certified_pdf String
+  image_url     String
+  status        CAMPAIGN_STATUS @default(PENDING)
+  deadline      DateTime
+  target_amount Int
+  amount_raised Int
+  //
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  deleted_at    DateTime?
+  //
+  user_id       String          @db.Uuid()
+  user          User            @relation(fields: [user_id], references: [id])
+  donations     Donation[]
+  ratings       Rating[]
+
+  @@map("campaigns")
+}
+
+enum PAYMENT_STATUS {
+  PENDING
+  FAILED
+  REJECTED
+  SUCCESS
+}
+
+model Payment {
+  id            String         @id @default(uuid()) @db.Uuid()
+  amount        Int
+  synced_at     DateTime?
+  tx_ref        String
+  custom_tx_ref String
+  status        PAYMENT_STATUS
+  comment       String?
+  //
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+  deleted_at    DateTime?
+  //
+  donation_id   String         @db.Uuid()
+  donation      Donation       @relation(fields: [donation_id], references: [id])
+  user_id       String         @db.Uuid()
+  user          User           @relation(fields: [user_id], references: [id])
+  webhook       Webhook?
+
+  @@map("payments")
+}
+
+model Wallet {
+  id         String    @id @default(uuid()) @db.Uuid()
+  balance    Int
+  //
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+  //
+  user_id    String    @db.Uuid()
+  user       User      @relation(fields: [user_id], references: [id])
+
+  @@map("wallets")
+}
+
+model Webhook {
+  id         String    @id @default(uuid()) @db.Uuid()
+  event      Json
+  //
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+  //
+  payment_id String?   @unique() @db.Uuid()
+  user       Payment?  @relation(fields: [payment_id], references: [id])
+
+  @@map("webhooks")
+}
+
+model Rating {
+  id      String  @id @default(uuid()) @db.Uuid()
+  score   Int
+  comment String?
+
+  //
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+  //
+  user_id     String    @db.Uuid()
+  user        User      @relation(fields: [user_id], references: [id])
+  campaign_id String    @db.Uuid()
+  campaign    Campaign  @relation(fields: [campaign_id], references: [id])
+
+  @@map("ratings")
+}
