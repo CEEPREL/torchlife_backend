@@ -1,6 +1,5 @@
 import { Text } from '@react-email/components';
 import Layout from './reuseable/layout';
-// import Layout from "./reuseable/layout";
 
 interface DropboxResetPasswordEmailProps {
     firstName: string;
