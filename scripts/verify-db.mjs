@@ -1,20 +1,11 @@
 import { PrismaClient } from '@prisma/client';
+import { getDatabaseUrlFromEnv, parseDatabaseUrl } from './database-url.mjs';
 
 const prisma = new PrismaClient();
 
 function getExpectedDatabaseName() {
-  const databaseUrl = process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    return process.env.POSTGRES_DB ?? 'torchlife';
-  }
-
-  try {
-    const parsedUrl = new URL(databaseUrl);
-    return parsedUrl.pathname.replace(/^\//, '') || process.env.POSTGRES_DB || 'torchlife';
-  } catch {
-    return process.env.POSTGRES_DB ?? 'torchlife';
-  }
+  const databaseUrl = getDatabaseUrlFromEnv();
+  return parseDatabaseUrl(databaseUrl).database;
 }
 
 async function main() {

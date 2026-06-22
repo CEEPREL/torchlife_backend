@@ -3,7 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './services/auth/auth.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserModule } from './services/user/user.module';
 import { PaymentsModule } from './services/payments/payments.module';
 import { EmailTransportService } from './services/email-transport/email-transport.service';
@@ -11,6 +11,7 @@ import { UploadModule } from './services/upload/upload.module';
 import { CampaignModule } from './services/campaign/campaign.module';
 import { BullModule } from '@nestjs/bull';
 import { RedisHealthService } from './health/redis-health.service';
+import { createBullConfig } from './config/redis.config';
 
 @Module({
     imports: [
@@ -19,11 +20,9 @@ import { RedisHealthService } from './health/redis-health.service';
         ConfigModule.forRoot({ isGlobal: true }),
         UserModule,
         PaymentsModule,
-        BullModule.forRoot({
-            redis: {
-                host: process.env.REDIS_HOST || 'localhost',
-                port: Number(process.env.REDIS_PORT) || 6379,
-            },
+        BullModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService) => createBullConfig(configService),
         }),
         UploadModule,
         CampaignModule,
@@ -31,4 +30,4 @@ import { RedisHealthService } from './health/redis-health.service';
     controllers: [AppController],
     providers: [AppService, EmailTransportService, RedisHealthService],
 })
-export class AppModule {}
+export class AppModule { }

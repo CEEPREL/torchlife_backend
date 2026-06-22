@@ -1,9 +1,7 @@
 import Redis from 'ioredis';
+import { getRedisUrlFromEnv } from './redis-url.mjs';
 
-const redis = new Redis({
-  host: process.env.REDIS_HOST ?? 'redis',
-  port: Number(process.env.REDIS_PORT ?? '6379'),
-  password: process.env.REDIS_PASSWORD || undefined,
+const redis = new Redis(getRedisUrlFromEnv(), {
   lazyConnect: true,
   maxRetriesPerRequest: 1,
   enableReadyCheck: true,

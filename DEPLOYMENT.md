@@ -25,13 +25,14 @@ This setup is designed so local and production-like environments use the same co
 ## Local Development
 
 1. Copy `env.example` to `.env`.
-2. Confirm local container values for:
+2. Confirm backend app uses:
+   - `DATABASE_URL`
+3. Confirm local Postgres container values for:
    - `POSTGRES_USER`
    - `POSTGRES_PASSWORD`
    - `POSTGRES_DB`
-   - `REDIS_HOST`
-   - `REDIS_PORT`
-3. Start the full local stack:
+   - `REDIS_URL`
+4. Start the full local stack:
 
 ```bash
 docker compose -f docker-compose.local.yml up --build

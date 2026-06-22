@@ -1,21 +1,13 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
+import { createRedisClient, getRedisUrl } from 'src/config/redis.config';
 
 @Injectable()
 export class RedisHealthService implements OnModuleInit, OnModuleDestroy {
-    private readonly client: Redis;
+    private readonly client: ReturnType<typeof createRedisClient>;
 
     constructor(private readonly configService: ConfigService) {
-        this.client = new Redis({
-            host: this.configService.get<string>('REDIS_HOST', 'localhost'),
-            port: Number(this.configService.get<string>('REDIS_PORT', '6379')),
-            password: this.configService.get<string>('REDIS_PASSWORD') || undefined,
-            lazyConnect: true,
-            maxRetriesPerRequest: 1,
-            enableReadyCheck: true,
-            connectTimeout: 5000,
-        });
+        this.client = createRedisClient(getRedisUrl(this.configService));
     }
 
     async onModuleInit() {

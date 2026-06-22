@@ -2,13 +2,6 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-
-POSTGRES_HOST=${POSTGRES_HOST:-postgres}
-POSTGRES_PORT=${POSTGRES_PORT:-5432}
-POSTGRES_USER=${POSTGRES_USER:-postgres}
-POSTGRES_DB=${POSTGRES_DB:-torchlife}
-REDIS_HOST=${REDIS_HOST:-redis}
-REDIS_PORT=${REDIS_PORT:-6379}
 PORT=${PORT:-3000}
 
 DB_WAIT_RETRIES=${DB_WAIT_RETRIES:-30}
@@ -18,23 +11,15 @@ WAIT_SLEEP_SECONDS=${WAIT_SLEEP_SECONDS:-2}
 APP_HEALTHCHECK_URL=${APP_HEALTHCHECK_URL:-http://127.0.0.1:${PORT}/api/health}
 
 wait_for_postgres() {
-  echo "Waiting for PostgreSQL at ${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}..."
-  node "$SCRIPT_DIR/wait-for-tcp.mjs" \
-    "$POSTGRES_HOST" \
-    "$POSTGRES_PORT" \
+  node "$SCRIPT_DIR/wait-for-postgres.mjs" \
     "$DB_WAIT_RETRIES" \
-    $((WAIT_SLEEP_SECONDS * 1000)) \
-    PostgreSQL
+    $((WAIT_SLEEP_SECONDS * 1000))
 }
 
 wait_for_redis() {
-  echo "Waiting for Redis at ${REDIS_HOST}:${REDIS_PORT}..."
-  node "$SCRIPT_DIR/wait-for-tcp.mjs" \
-    "$REDIS_HOST" \
-    "$REDIS_PORT" \
+  node "$SCRIPT_DIR/wait-for-redis.mjs" \
     "$REDIS_WAIT_RETRIES" \
-    $((WAIT_SLEEP_SECONDS * 1000)) \
-    Redis
+    $((WAIT_SLEEP_SECONDS * 1000))
 }
 
 wait_for_app_health() {
