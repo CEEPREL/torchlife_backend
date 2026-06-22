@@ -46,6 +46,18 @@ export class UploadService {
             throw new BadRequestException('User authentication required');
         }
 
+        const campaign = await this.prismaDB.campaign.findFirst({
+            where: {
+                id: campaignId,
+                is_deleted: false,
+            },
+            select: { id: true },
+        });
+
+        if (!campaign) {
+            throw new BadRequestException('Campaign not found or has been removed');
+        }
+
         const isAllowedMimeType = this.allowedMimeTypes.includes(file.mimetype);
 
         if (!isAllowedMimeType) {

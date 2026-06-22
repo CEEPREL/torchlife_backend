@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class SendEmailDto {
     @ApiProperty({
@@ -33,11 +33,11 @@ export class SendEmailDto {
     @IsNotEmpty()
     content: string;
 
-    @ApiProperty({
+    @ApiPropertyOptional({
         description: 'The name of the HTML template file to use (without extension)',
         example: 'welcome',
     })
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    templateName: string;
+    templateName?: string;
 }

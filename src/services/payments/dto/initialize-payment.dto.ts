@@ -1,27 +1,22 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsArray, IsEmail, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 import { PaymentProviderKey } from 'src/domain/constants/payment-provider';
 
 export class InitializePaymentDto {
-    @IsString()
+    @IsEmail()
     @IsNotEmpty()
-    @ApiProperty({ description: 'The user ID' })
-    userId: string;
+    @ApiProperty({ description: 'The donor email address' })
+    email: string;
 
     @IsNumber()
     @IsNotEmpty()
     @ApiProperty({ description: 'The amount to pay' })
     amount: number;
 
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
     @ApiProperty({ description: 'The payment provider key' })
-    provider: PaymentProviderKey;
-
-    @IsString()
-    @IsNotEmpty()
-    @ApiProperty({ description: 'The wallet ID' })
-    wallet_id: string;
+    provider?: PaymentProviderKey;
 
     @IsString()
     @IsNotEmpty()
@@ -32,4 +27,19 @@ export class InitializePaymentDto {
     @IsNotEmpty()
     @ApiProperty({ description: 'The currency' })
     currency: string;
+
+    @IsOptional()
+    @ApiPropertyOptional({ description: 'Additional provider metadata' })
+    metadata?: Record<string, unknown>;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    @ApiPropertyOptional({ description: 'Allowed payment channels', type: [String] })
+    channels?: string[];
+
+    @IsOptional()
+    @IsString()
+    @ApiPropertyOptional({ description: 'Optional callback URL' })
+    callback_url?: string;
 }

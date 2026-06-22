@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
 export enum PaystackCurrency {
   NGN = 'NGN',
@@ -24,6 +24,30 @@ export class InitializePaystackDonationDto {
   @Min(1)
   amount: number;
 
+  @ApiProperty({
+    description: 'Donor email used for payment, receipts, and donation-to-user linking',
+    example: 'donor@example.com',
+  })
+  @IsEmail()
+  donorEmail: string;
+
+  @ApiProperty({
+    description: 'Donor email confirmation. Must exactly match donorEmail',
+    example: 'donor@example.com',
+  })
+  @IsEmail()
+  confirmDonorEmail: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional support tip added on top of the donation amount',
+    example: 1000,
+    minimum: 0,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  tipAmount?: number = 0;
+
   @ApiPropertyOptional({
     enum: PaystackCurrency,
     default: PaystackCurrency.NGN,
@@ -32,5 +56,20 @@ export class InitializePaystackDonationDto {
   @IsOptional()
   @IsEnum(PaystackCurrency)
   currency?: PaystackCurrency = PaystackCurrency.NGN;
-}
 
+  @ApiPropertyOptional({
+    description: 'Whether the donation should be recorded as anonymous on the campaign',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  anonymous?: boolean = false;
+
+  @ApiPropertyOptional({
+    description: 'Frontend callback URL that Paystack should redirect to after checkout',
+    example: 'http://localhost:3000/payments/callback',
+  })
+  @IsOptional()
+  @IsString()
+  callbackUrl?: string;
+}

@@ -1,4 +1,5 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ForgetPasswordDto, ResetPasswordDto, SignInDto, SignUpDto } from 'src/services/auth/dto/auth.dto';
 import { Request, Response } from 'express';
 import { IAuth } from 'src/domain/interface/auth.interface';
@@ -9,6 +10,10 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { DbUser } from 'src/shared/types/db-user.types';
 import { ApiStandardResponse, ApiCommonErrors } from 'src/shared/decorators/swagger.decorator';
 import { UserDto } from '../user/dto/user.dto';
+import { JwtAuthGuard } from 'src/shared/guard/jwt-auth.guard';
+import { CurrentUser } from 'src/shared/decorators/current-user';
+import { AuthUser } from 'src/shared/types/token-payload.types';
+import { GoogleAuthDto } from './dto/google-auth.dto';
 
 class AuthResponseDto {
   // Empty class for standard responses if no specific DTO exists
@@ -24,7 +29,22 @@ class TokenResponseDto {
 @ApiCommonErrors()
 @Controller('auth')
 export class AuthController implements IAuth {
-  constructor(private readonly authService: AuthService) { }
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) { }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  @ApiOperation({
+    summary: 'Get current authenticated user',
+    description: 'Returns the authenticated user profile from the current session (cookie or bearer token).',
+  })
+  @ApiStandardResponse(UserDto, 200, 'Authenticated user retrieved')
+  async me(@CurrentUser() user: AuthUser) {
+    return this.authService.getMe(user.id);
+  }
 
   @Post('signup')
   @ApiOperation({
@@ -35,7 +55,7 @@ export class AuthController implements IAuth {
   async signUp(
     @Body() signUpDto: SignUpDto,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ data: Omit<DbUser, 'password' | 'id'> }> {
+  ): Promise<{ data: Omit<DbUser, 'password'> }> {
     return this.authService.signUp(signUpDto, response);
   }
 
@@ -48,6 +68,16 @@ export class AuthController implements IAuth {
   @ApiStandardResponse(TokenResponseDto, 200, 'Login successful')
   async signIn(@Body() signInDto: SignInDto, @Res() res: Response): Promise<Response> {
     return this.authService.signIn(signInDto, res);
+  }
+
+  @Post('google')
+  @ApiOperation({
+    summary: 'Sign in with Google',
+    description: 'Verifies a Google ID token, creates or links the user account, and sets backend auth cookies.',
+  })
+  @ApiStandardResponse(TokenResponseDto, 200, 'Google login successful')
+  async googleAuth(@Body() dto: GoogleAuthDto, @Res() res: Response): Promise<Response> {
+    return this.authService.signInWithGoogle(dto.credential, res);
   }
 
   async verifyUser(signInDto: SignInDto): Promise<{ data: DbUser }> {
@@ -70,8 +100,10 @@ export class AuthController implements IAuth {
     description: 'Updates the user password using a valid reset token.',
   })
   @ApiStandardResponse(AuthResponseDto, 200, 'Password updated successfully')
-  async updatePassword(@Body() resetPasswordDto: ResetPasswordDto): Promise<{ msg: string }> {
-    return this.authService.updatePassword(resetPasswordDto);
+  async updatePassword(@Body() resetPasswordDto: ResetPasswordDto, @Req() req: Request): Promise<{ msg: string }> {
+    const accessToken = req.cookies?.accessToken;
+    const authUser = accessToken ? this.authService.verifyAccessToken(accessToken) : undefined;
+    return this.authService.updatePassword(resetPasswordDto, authUser);
   }
 
   @Post('request-password-change')
@@ -132,8 +164,10 @@ export class AuthController implements IAuth {
       await this.authService.logout(decoded.id);
     }
 
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    const isProd = this.configService.getOrThrow('NODE_ENV') === 'production';
+    const sameSite = isProd ? 'none' : 'lax';
+    res.clearCookie('accessToken', { httpOnly: true, secure: isProd, sameSite });
+    res.clearCookie('refreshToken', { httpOnly: true, secure: isProd, sameSite, path: '/auth/refresh' });
 
     return { message: 'Logged out successfully' };
   }

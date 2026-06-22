@@ -7,7 +7,7 @@
     "packageManager": "yarn@4.16.0",
     "license": "UNLICENSED",
     "scripts": {
-        "copy:templates": "copyfiles -f src/email-templates/**/* dist/",
+        "copy:templates": "copyfiles -u 2 \"src/domain/email-templates/**/*.html\" dist/domain/email-templates",
         "build": "nest build && npm run copy:templates",
         "start:prod": "node dist/main.js",
         "start:dev": "nest start --watch",

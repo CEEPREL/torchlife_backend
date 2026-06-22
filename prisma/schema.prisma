@@ -1,11 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// schema.prisma
-
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x"]
@@ -16,41 +8,35 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum USER_ACTIVITIES {
-  DONOR
-  RECEIVER
-}
-
-enum USER_ROLES {
-  ADMIN
-  SUPER_ADMIN
-  USER
-  PROXY
-}
-
 model User {
-  id                 String           @id @default(uuid()) @db.Uuid()
-  first_name         String
-  last_name          String
-  password           String
-  isverified         Boolean
-  email              String           @unique()
-  phone_number       String           @unique()
-  role               USER_ROLES?      @default(USER)
-  activities         USER_ACTIVITIES?
-  refreshToken       String?
-  //
-  created_at         DateTime         @default(now())
-  updated_at         DateTime         @updatedAt
-  deleted_at         DateTime?
-  //
-  verified_campaigns Campaign[]       @relation(name: "verified_campaigns")
-  donations          Donation[]
-  payment            Payment[]
-  wallet             Wallet?
-  campaigns          Campaign[]       @relation(name: "campaign_owner")
-  ratings            Rating[]
-  fileUploads        FileUpload[]
+  id                         String                      @id @default(uuid()) @db.Uuid
+  first_name                 String
+  last_name                  String
+  password                   String
+  email                      String                      @unique
+  activities                 USER_ACTIVITIES?
+  created_at                 DateTime                    @default(now())
+  updated_at                 DateTime                    @updatedAt
+  deleted_at                 DateTime?
+  phone_number               String?                     @unique
+  isverified                 Boolean
+  role                       USER_ROLES?                 @default(USER)
+  refreshToken               String?
+  marketing_metadata         Json?
+  last_marketing_sync_at     DateTime?
+  philanthropic_name         String                      @unique
+  impact_score               Int                         @default(0)
+  emergencies_supported      Int                         @default(0)
+  campaigns                  Campaign[]                  @relation("campaign_owner")
+  verified_campaigns         Campaign[]                  @relation("verified_campaigns")
+  donations                  Donation[]
+  document_requests          SupportingDocumentRequest[] @relation("document_request_user")
+  reviewed_document_requests SupportingDocumentRequest[] @relation("document_request_admin")
+  extension_audits           CampaignExtensionAudit[]    @relation("campaign_extension_audits_admin")
+  fileUploads                FileUpload[]
+  payment                    Payment[]
+  ratings                    Rating[]
+  wallet                     Wallet?
 
   @@map("users")
 }
@@ -63,7 +49,7 @@ model OtpToken {
 }
 
 model FileUpload {
-  id           String   @id @default(uuid()) @db.Uuid()
+  id           String   @id @default(uuid()) @db.Uuid
   publicId     String   @unique
   url          String
   format       String
@@ -71,15 +57,322 @@ model FileUpload {
   sizeInBytes  Int
   originalName String
   uploadedAt   DateTime @default(now())
+  userId       String?  @db.Uuid
+  campaignId   String   @db.Uuid
   mimeType     String?
-  // Relations
-  userId       String?  @db.Uuid()
+  campaign     Campaign @relation(fields: [campaignId], references: [id])
   user         User?    @relation(fields: [userId], references: [id])
 
-  campaignId String   @db.Uuid()
-  campaign   Campaign @relation(fields: [campaignId], references: [id])
-
   @@map("file_uploads")
+}
+
+model Donation {
+  id           String          @id @default(uuid()) @db.Uuid
+  amount       Int
+  created_at   DateTime        @default(now())
+  updated_at   DateTime        @updatedAt
+  deleted_at   DateTime?
+  user_id      String          @db.Uuid
+  campaign_id  String          @db.Uuid
+  status       DONATION_STATUS @default(PENDING)
+  donor_email  String?
+  is_anonymous Boolean         @default(false)
+  campaign     Campaign        @relation(fields: [campaign_id], references: [id])
+  user         User            @relation(fields: [user_id], references: [id])
+  payment      Payment[]
+
+  @@index([campaign_id, status])
+  @@index([user_id, status])
+  @@map("donations")
+}
+
+model Campaign {
+  id                     String                      @id @default(uuid()) @db.Uuid
+  public_id              String                      @unique @default(cuid())
+  title                  String
+  certified_pdf          String
+  image_url              String
+  status                 CAMPAIGN_STATUS             @default(PENDING)
+  created_at             DateTime                    @default(now())
+  updated_at             DateTime                    @updatedAt
+  deleted_at             DateTime?
+  deleted_by_id          String?                     @db.Uuid
+  is_deleted             Boolean                     @default(false)
+  user_id                String                      @db.Uuid
+  amount_raised          Int                         @default(0)
+  deadline               DateTime
+  story                  String?
+  target_amount          Int
+  proxyAddress           String?
+  proxyEmail             String?
+  proxyName              String?
+  proxyNote              String?
+  proxyPhone             String?
+  type                   USER_ROLES                  @default(USER)
+  batch                  Int                         @default(1)
+  location               String?
+  hospital_name          String?
+  hospital_contact       String?
+  hospital_contact_person_name String?
+  priority               CAMPAIGN_PRIORITY           @default(LOW)
+  records                String[]
+  verified_by_id         String                      @db.Uuid
+  currency               CURRENCY                    @default(NGN)
+  approval_email_sent    Boolean                     @default(false)
+  approved_by_id         String?                     @db.Uuid
+  approved_at            DateTime?
+  approval_notes         String?
+  extension_status       CAMPAIGN_EXTENSION_STATUS   @default(NONE)
+  requested_deadline     DateTime?
+  extension_requested_at DateTime?
+  extension_reviewed_at  DateTime?
+  user                   User                        @relation("campaign_owner", fields: [user_id], references: [id])
+  verified_by            User                        @relation("verified_campaigns", fields: [verified_by_id], references: [id])
+  donations              Donation[]
+  fileUploads            FileUpload[]
+  document_requests      SupportingDocumentRequest[]
+  extension_audits       CampaignExtensionAudit[]
+  ratings                Rating[]
+  wallet                 Wallet?
+
+  @@map("campaigns")
+}
+
+model Payment {
+  id                      String              @id @default(uuid()) @db.Uuid
+  amount                  Int
+  synced_at               DateTime?
+  tx_ref                  String              @unique
+  custom_tx_ref           String
+  status                  PAYMENT_STATUS
+  comment                 String?
+  created_at              DateTime            @default(now())
+  updated_at              DateTime            @updatedAt
+  deleted_at              DateTime?
+  donation_id             String?             @db.Uuid
+  user_id                 String?             @db.Uuid
+  currency                CURRENCY
+  type                    PAYMENT_TYPE
+  meta                    Json?
+  wallet_id               String?             @db.Uuid
+  provider                String?
+  donor_email             String?
+  payment_channel         String?
+  paystack_transaction_id BigInt?
+  verified_at             DateTime?
+  walletTransactions      WalletTransaction[]
+  withdrawalRequests      WithdrawalRequest[]
+  donation                Donation?           @relation(fields: [donation_id], references: [id])
+  user                    User?               @relation(fields: [user_id], references: [id])
+  wallet                  Wallet?             @relation(fields: [wallet_id], references: [id])
+  webhook                 Webhook?
+
+  @@index([donation_id])
+  @@index([user_id, status])
+  @@index([provider, status])
+  @@map("payments")
+}
+
+model Wallet {
+  id                String              @id @default(uuid()) @db.Uuid
+  balance           Int
+  user_id           String?             @unique @db.Uuid
+  currency          CURRENCY            @default(NGN)
+  campaign_id       String?             @unique @db.Uuid
+  account_status    ACCOUNT_STATUS      @default(ACTIVE)
+  WalletTransaction WalletTransaction[]
+  payments          Payment[]
+  campaign          Campaign?           @relation(fields: [campaign_id], references: [id])
+  user              User?               @relation(fields: [user_id], references: [id])
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String         @id @default(uuid()) @db.Uuid
+  amount      Int
+  type        PAYMENT_TYPE
+  currency    CURRENCY
+  status      PAYMENT_STATUS @default(PENDING)
+  reference   String         @unique
+  description String?
+  meta        Json?
+  wallet_id   String         @db.Uuid
+  created_at  DateTime       @default(now())
+  updated_at  DateTime       @updatedAt
+  payment_id  String?        @db.Uuid
+  payment     Payment?       @relation(fields: [payment_id], references: [id])
+  wallet      Wallet         @relation(fields: [wallet_id], references: [id], onDelete: Cascade)
+
+  @@index([wallet_id])
+}
+
+model WithdrawalRequest {
+  id           String            @id @default(uuid()) @db.Uuid
+  user_id      String            @db.Uuid
+  wallet_id    String            @db.Uuid
+  amount       Int
+  status       WITHDRAWAL_STATUS
+  reason       String?
+  initiated_at DateTime          @default(now())
+  processed_at DateTime?
+  payment_id   String?           @db.Uuid
+  payment      Payment?          @relation(fields: [payment_id], references: [id])
+}
+
+model Webhook {
+  id                String    @id @default(uuid()) @db.Uuid
+  event             Json
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+  payment_id        String?   @unique @db.Uuid
+  event_type        String?
+  reference         String?
+  paystack_event_id String?   @unique
+  payment           Payment?  @relation(fields: [payment_id], references: [id])
+
+  @@index([reference])
+  @@map("webhooks")
+}
+
+model Rating {
+  id          String    @id @default(uuid()) @db.Uuid
+  score       Int
+  comment     String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+  user_id     String    @db.Uuid
+  campaign_id String    @db.Uuid
+  campaign    Campaign  @relation(fields: [campaign_id], references: [id])
+  user        User      @relation(fields: [user_id], references: [id])
+
+  @@map("ratings")
+}
+
+model SupportingDocumentRequest {
+  id             String                  @id @default(uuid()) @db.Uuid
+  user_id        String                  @db.Uuid
+  campaign_id    String                  @db.Uuid
+  requested_at   DateTime                @default(now())
+  reviewed_at    DateTime?
+  reviewed_by_id String?                 @db.Uuid
+  status         DOCUMENT_REQUEST_STATUS @default(PENDING)
+  campaign       Campaign                @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  user           User                    @relation("document_request_user", fields: [user_id], references: [id], onDelete: Cascade)
+  reviewed_by    User?                   @relation("document_request_admin", fields: [reviewed_by_id], references: [id])
+
+  @@unique([user_id, campaign_id])
+  @@index([campaign_id, status])
+  @@map("supporting_document_requests")
+}
+
+model CampaignExtensionAudit {
+  id           String   @id @default(uuid()) @db.Uuid
+  campaign_id  String   @db.Uuid
+  admin_id     String   @db.Uuid
+  old_deadline DateTime
+  new_deadline DateTime
+  created_at   DateTime @default(now())
+  campaign     Campaign @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  admin        User     @relation("campaign_extension_audits_admin", fields: [admin_id], references: [id], onDelete: Cascade)
+
+  @@index([campaign_id, created_at])
+  @@map("campaign_extension_audits")
+}
+
+model Campaigns {
+  id            String             @id @default(cuid())
+  title         String
+  category      CampaignCategory
+  story         String
+  amountNeeded  Float
+  amountRaised  Float              @default(0)
+  currency      String
+  status        CampaignStatus
+  verified      Boolean            @default(false)
+  submitterType String
+  beneficiaryId String
+  submitterId   String?
+  hospitalId    String
+  consentId     String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  documents     CampaignDocument[]
+  updates       CampaignUpdate[]
+  beneficiary   Beneficiary        @relation(fields: [beneficiaryId], references: [id])
+  consent       Consent            @relation(fields: [consentId], references: [id])
+  hospital      Hospital           @relation(fields: [hospitalId], references: [id])
+  submitter     Submitter?         @relation(fields: [submitterId], references: [id])
+}
+
+model Submitter {
+  id           String      @id @default(cuid())
+  name         String
+  relationship String?
+  phone        String
+  email        String
+  campaigns    Campaigns[]
+}
+
+model Beneficiary {
+  id                     String      @id @default(cuid())
+  name                   String
+  countryOfResidence     String
+  expectedDateOfDelivery DateTime
+  medicalConditions      String[]
+  campaigns              Campaigns[]
+}
+
+model Hospital {
+  id        String      @id @default(cuid())
+  name      String
+  phone     String
+  address   String
+  campaigns Campaigns[]
+}
+
+model Consent {
+  id        String      @id @default(cuid())
+  agreed    Boolean
+  agreedAt  DateTime
+  campaigns Campaigns[]
+}
+
+model CampaignUpdate {
+  id         String    @id @default(cuid())
+  campaignId String
+  message    String
+  visibility String
+  createdBy  String
+  status     String    @default("PUBLISHED")
+  createdAt  DateTime  @default(now())
+  campaign   Campaigns @relation(fields: [campaignId], references: [id])
+}
+
+model CampaignDocument {
+  id         String    @id @default(cuid())
+  campaignId String
+  fileName   String
+  fileUrl    String
+  mimeType   String
+  isHero     Boolean   @default(false)
+  type       String
+  visibility String
+  campaign   Campaigns @relation(fields: [campaignId], references: [id])
+}
+
+enum USER_ACTIVITIES {
+  DONOR
+  RECEIVER
+}
+
+enum USER_ROLES {
+  ADMIN
+  USER
+  SUPER_ADMIN
+  PROXY
 }
 
 enum DONATION_STATUS {
@@ -87,24 +380,6 @@ enum DONATION_STATUS {
   FAILED
   REJECTED
   SUCCESS
-}
-
-model Donation {
-  id          String          @id @default(uuid()) @db.Uuid()
-  amount      Int
-  status      DONATION_STATUS @default(PENDING)
-  //
-  created_at  DateTime        @default(now())
-  updated_at  DateTime        @updatedAt
-  deleted_at  DateTime?
-  //
-  user_id     String          @db.Uuid()
-  user        User            @relation(fields: [user_id], references: [id])
-  campaign_id String          @db.Uuid()
-  campaign    Campaign        @relation(fields: [campaign_id], references: [id])
-  payment     Payment[]
-
-  @@map("donations")
 }
 
 enum CAMPAIGN_STATUS {
@@ -119,53 +394,22 @@ enum CAMPAIGN_PRIORITY {
   HIGH
 }
 
+enum CAMPAIGN_EXTENSION_STATUS {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DOCUMENT_REQUEST_STATUS {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum CURRENCY {
   NGN
   USD
-}
-
-model Campaign {
-  id            String            @id @default(uuid()) @db.Uuid()
-  title         String
-  story         String?
-  location      String?
-  priority      CAMPAIGN_PRIORITY @default(LOW)
-  records       String[]
-  batch         Int               @default(1)
-  currency      CURRENCY          @default(NGN)
-  certified_pdf String
-  image_url     String
-  status        CAMPAIGN_STATUS   @default(PENDING)
-  deadline      DateTime
-  target_amount Int
-  amount_raised Int               @default(0)
-  type          USER_ROLES        @default(USER)
-
-  // Verification organization (many campaigns can be verified by one org)
-  verified_by_id String  @db.Uuid()
-  verified_by    User    @relation(name: "verified_campaigns", fields: [verified_by_id], references: [id])
-  wallet         Wallet?
-
-  // Optional proxy fields
-  proxyName    String?
-  proxyPhone   String?
-  proxyEmail   String?
-  proxyAddress String?
-  proxyNote    String?
-
-  // File uploads and related entities
-  fileUploads FileUpload[]
-  donations   Donation[]
-  ratings     Rating[]
-
-  user_id String @db.Uuid()
-  user    User   @relation(name: "campaign_owner", fields: [user_id], references: [id])
-
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-  deleted_at DateTime?
-
-  @@map("campaigns")
 }
 
 enum PAYMENT_STATUS {
@@ -182,83 +426,10 @@ enum PAYMENT_TYPE {
   ADJUSTMENT
 }
 
-model Payment {
-  id            String         @id @default(uuid()) @db.Uuid()
-  amount        Int
-  synced_at     DateTime?
-  tx_ref        String
-  custom_tx_ref String
-  status        PAYMENT_STATUS
-  comment       String?
-  type          PAYMENT_TYPE
-  currency      CURRENCY
-  meta          Json?
-  provider      String?
-
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-  deleted_at DateTime?
-
-  donation_id String?   @db.Uuid()
-  donation    Donation? @relation(fields: [donation_id], references: [id])
-
-  user_id String? @db.Uuid()
-  user    User?   @relation(fields: [user_id], references: [id])
-
-  wallet_id String? @db.Uuid()
-  wallet    Wallet? @relation(fields: [wallet_id], references: [id]) // ✅ Correct one-to-many relation
-
-  webhook            Webhook?
-  walletTransactions WalletTransaction[]
-  withdrawalRequests WithdrawalRequest[]
-
-  @@map("payments")
-}
-
 enum ACCOUNT_STATUS {
   ACTIVE
   INACTIVE
   SUSPENDED
-}
-
-model Wallet {
-  id             String         @id @default(uuid()) @db.Uuid()
-  balance        Int
-  currency       CURRENCY       @default(NGN)
-  account_status ACCOUNT_STATUS @default(ACTIVE)
-
-  user_id     String? @unique @db.Uuid()
-  campaign_id String? @unique @db.Uuid()
-
-  user     User?     @relation(fields: [user_id], references: [id])
-  campaign Campaign? @relation(fields: [campaign_id], references: [id])
-
-  WalletTransaction WalletTransaction[]
-  payments          Payment[]
-
-  @@map("wallets")
-}
-
-model WalletTransaction {
-  id          String         @id @default(uuid()) @db.Uuid()
-  amount      Int
-  type        PAYMENT_TYPE
-  currency    CURRENCY
-  status      PAYMENT_STATUS @default(PENDING)
-  reference   String         @unique
-  description String?
-  meta        Json?
-
-  wallet_id String @db.Uuid()
-  wallet    Wallet @relation(fields: [wallet_id], references: [id], onDelete: Cascade)
-
-  payment_id String?  @db.Uuid()
-  payment    Payment? @relation(fields: [payment_id], references: [id])
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@index([wallet_id])
 }
 
 enum WITHDRAWAL_STATUS {
@@ -268,171 +439,9 @@ enum WITHDRAWAL_STATUS {
   FAILED
 }
 
-model WithdrawalRequest {
-  id           String            @id @default(uuid()) @db.Uuid()
-  user_id      String            @db.Uuid()
-  wallet_id    String            @db.Uuid()
-  payment_id   String?           @db.Uuid()
-  payment      Payment?          @relation(fields: [payment_id], references: [id])
-  amount       Int
-  status       WITHDRAWAL_STATUS
-  reason       String?
-  initiated_at DateTime          @default(now())
-  processed_at DateTime?
-}
-
-model Webhook {
-  id         String    @id @default(uuid()) @db.Uuid()
-  event      Json
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-  deleted_at DateTime?
-
-  payment_id String?  @unique @db.Uuid()
-  payment    Payment? @relation(fields: [payment_id], references: [id])
-
-  @@map("webhooks")
-}
-
-model Rating {
-  id      String  @id @default(uuid()) @db.Uuid()
-  score   Int
-  comment String?
-
-  //
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
-  deleted_at  DateTime?
-  //
-  user_id     String    @db.Uuid()
-  user        User      @relation(fields: [user_id], references: [id])
-  campaign_id String    @db.Uuid()
-  campaign    Campaign  @relation(fields: [campaign_id], references: [id])
-
-  @@map("ratings")
-}
-
-
-//Azeez
 enum SubmitterType {
   SELF
   PROXY
-}
-
-model Campaigns {
-  id                String   @id @default(cuid())
-
-  title             String
-
-  category          CampaignCategory
-
-  story             String
-
-  amountNeeded      Float
-
-  amountRaised      Float @default(0)
-
-  currency          String
-
-  status            CampaignStatus
-
-  verified          Boolean @default(false)
-
-  submitterType     String
-
-  beneficiaryId     String
-
-  submitterId       String?
-
-  hospitalId        String
-
-  consentId         String
-
-  beneficiary       Beneficiary @relation(fields: [beneficiaryId], references: [id])
-
-  submitter         Submitter? @relation(fields: [submitterId], references: [id])
-
-  hospital          Hospital @relation(fields: [hospitalId], references: [id])
-
-  consent           Consent @relation(fields: [consentId], references: [id])
-
-  documents         CampaignDocument[]
-
-  updates           CampaignUpdate[]
-
-  createdAt         DateTime @default(now())
-
-  updatedAt         DateTime @updatedAt
-}
-
-
-model Submitter {
-  id            String   @id @default(cuid())
-  name          String
-  relationship  String?
-  phone         String
-  email         String
-
-  campaigns     Campaigns[]
-}
-
-model Beneficiary {
-  id                          String   @id @default(cuid())
-  name                        String
-  countryOfResidence          String
-  expectedDateOfDelivery      DateTime
-  medicalConditions           String[]
-
-  campaigns                   Campaigns[]
-}
-
-model Hospital {
-  id        String   @id @default(cuid())
-  name      String
-  phone     String
-  address   String
-
-  campaigns Campaigns[]
-}
-
-model Consent {
-  id         String   @id @default(cuid())
-  agreed     Boolean
-  agreedAt   DateTime
-
-  campaigns  Campaigns[]
-}
-
-model CampaignUpdate {
-  id          String   @id @default(cuid())
-  campaignId  String
-  message     String
-  visibility  String
-  createdBy   String
-  status      String   @default("PUBLISHED")
-  createdAt   DateTime @default(now())
-
-  campaign    Campaigns @relation(fields: [campaignId], references: [id])
-}
-
-model CampaignDocument {
-  id          String @id @default(cuid())
-
-  campaignId  String
-
-  fileName    String
-
-  fileUrl     String
-
-  mimeType    String
-
-  isHero      Boolean @default(false)
-
-  type        String
-
-  visibility  String
-
-  campaign    Campaigns @relation(fields: [campaignId], references: [id])
 }
 
 enum CampaignStatus {
