@@ -3,7 +3,14 @@ import { ForgetPasswordDto, ResetPasswordDto, SignInDto, SignUpDto } from 'src/s
 import { DbUser } from 'src/shared/types/db-user.types';
 
 export interface IAuth {
-    signUp(signUpDto: SignUpDto, response: Response): Promise<{ data: Omit<DbUser, 'password'> }>;
+    signUp(signUpDto: SignUpDto, response: Response): Promise<{
+        data: {
+            user: Omit<DbUser, 'password'>;
+            accessToken: string;
+            tokenType: string;
+            expiresAt: Date;
+        };
+    }>;
 
     signIn(signInDto: SignInDto, res: Response): Promise<Response>;
 
@@ -15,7 +22,11 @@ export interface IAuth {
 
     requestPasswordChange(data: { identifier: string }): Promise<{ msg: string }>;
 
-    refreshToken(response: Response): Promise<{ accessToken: string }>;
+    refreshToken(response: Response): Promise<{
+        accessToken: string;
+        tokenType: string;
+        expiresAt: Date;
+    }>;
 
     logout(req: Request, res: Response): Promise<{ message: string }>;
 }

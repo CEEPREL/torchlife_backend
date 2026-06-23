@@ -69,55 +69,18 @@ export class AuthService {
         });
     }
 
-    // #region debug-point google-sso-backend-report
-    private async reportGoogleSsoDebug(event: string, payload: Record<string, unknown> = {}) {
-        try {
-            await fetch('http://127.0.0.1:7777/event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'google-sso',
-                    source: 'backend',
-                    event,
-                    hypothesisId: payload.hypothesisId ?? null,
-                    runId: 'pre',
-                    ts: new Date().toISOString(),
-                    payload,
-                }),
-            });
-        } catch {
-            // Intentionally ignore debug transport failures.
-        }
-    }
-    // #endregion debug-point google-sso-backend-report
-
-    // #region debug-point login-invalid-credentials-backend-report
-    private async reportLoginDebug(event: string, payload: Record<string, unknown> = {}) {
-        try {
-            await fetch('http://127.0.0.1:7777/event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'login-invalid-credentials',
-                    source: 'backend',
-                    event,
-                    hypothesisId: payload.hypothesisId ?? null,
-                    runId: 'pre',
-                    ts: new Date().toISOString(),
-                    payload,
-                }),
-            });
-        } catch {
-            // Intentionally ignore debug transport failures.
-        }
-    }
-    // #endregion debug-point login-invalid-credentials-backend-report
-
     // ---------- SIGN UP ----------
     async signUp(
         signUpDto: SignUpDto,
         response: Response,
-    ): Promise<{ data: Omit<DbUser, 'password'> }> {
+    ): Promise<{
+        data: {
+            user: Omit<DbUser, 'password'>;
+            accessToken: string;
+            tokenType: string;
+            expiresAt: Date;
+        };
+    }> {
         signUpDto.email = signUpDto.email.trim().toLowerCase();
         if (typeof signUpDto.phone_number === 'string') {
             signUpDto.phone_number = signUpDto.phone_number.trim();
@@ -125,7 +88,7 @@ export class AuthService {
 
         try {
             const user = await this.userService.createUser(signUpDto);
-            await this.attachSessionCookies(user, response);
+            const session = await this.attachSessionCookies(user, response);
 
             // OTP
             const otp = crypto.randomInt(100000, 999999);
@@ -152,7 +115,12 @@ export class AuthService {
                 content: htmlContent,
             });
 
-            return { data: user };
+            return {
+                data: {
+                    user,
+                    ...session,
+                },
+            };
         } catch (error) {
             console.error('Failed to create user', error);
             if (error instanceof HttpException) throw error;
@@ -163,23 +131,8 @@ export class AuthService {
     // ---------- VERIFY USER ----------
     async verifyUser(signInDto: SignInDto): Promise<{ data: DbUser }> {
         const { identifier, password } = signInDto;
-        await this.reportLoginDebug('backend_verify_user_start', {
-            hypothesisId: 'D',
-            identifier,
-            normalizedIdentifier: identifier.trim().toLowerCase(),
-            passwordLength: password.length,
-        });
 
         const user = await this.userService.getUser(identifier);
-        await this.reportLoginDebug('backend_verify_user_lookup_result', {
-            hypothesisId: 'D',
-            identifier,
-            userFound: !!user,
-            userId: user?.id ?? null,
-            userEmail: user?.email ?? null,
-            isVerified: user?.isverified ?? null,
-            hasPassword: user ? this.userService.hasPassword(user) : null,
-        });
         if (!user) throw new UnauthorizedException('Invalid credentials');
         if (!this.userService.hasPassword(user)) {
             const marketingMetadata =
@@ -191,11 +144,6 @@ export class AuthService {
                     ? (marketingMetadata.auth as Record<string, unknown>)
                     : {};
             const authProvider = typeof authMetadata.provider === 'string' ? authMetadata.provider : null;
-            await this.reportLoginDebug('backend_verify_user_google_only_account', {
-                hypothesisId: 'D',
-                userId: user.id,
-                email: user.email,
-            });
             if (authProvider === 'google') {
                 throw new UnauthorizedException('This account uses Google sign in. Sign in with Google or set a password first.');
             }
@@ -203,55 +151,22 @@ export class AuthService {
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
-        await this.reportLoginDebug('backend_verify_user_password_check', {
-            hypothesisId: 'A',
-            userId: user.id,
-            email: user.email,
-            isMatch,
-        });
         if (!isMatch) throw new UnauthorizedException('Invalid credentials');
         if (!user.isverified) {
-            await this.reportLoginDebug('backend_verify_user_unverified_email', {
-                hypothesisId: 'B',
-                userId: user.id,
-                email: user.email,
-            });
             await this.handleUnverifiedEmailLogin(user);
         }
 
-        await this.reportLoginDebug('backend_verify_user_success', {
-            hypothesisId: 'E',
-            userId: user.id,
-            email: user.email,
-        });
         return { data: user };
     }
 
     // ---------- SIGN IN ----------
     async signIn(signInDto: SignInDto, res: Response): Promise<Response> {
         signInDto.identifier = signInDto.identifier.trim().toLowerCase();
-        await this.reportLoginDebug('backend_signin_start', {
-            hypothesisId: 'D',
-            identifier: signInDto.identifier,
-        });
 
         try {
             const user = (await this.verifyUser(signInDto)).data;
-            await this.reportLoginDebug('backend_signin_attach_session', {
-                hypothesisId: 'E',
-                userId: user.id,
-                email: user.email,
-            });
             return res.json(await this.attachSessionCookies(user, res));
         } catch (error) {
-            await this.reportLoginDebug('backend_signin_failure', {
-                hypothesisId: error instanceof ForbiddenException ? 'B' : 'D',
-                errorName: error instanceof Error ? error.name : 'UnknownError',
-                message: error instanceof Error ? error.message : 'Unknown sign in error',
-                isHttpException: error instanceof HttpException,
-                status:
-                    error instanceof HttpException ? error.getStatus() : null,
-            });
             if (error instanceof HttpException) {
                 throw error;
             }
@@ -262,17 +177,8 @@ export class AuthService {
 
     async signInWithGoogle(credential: string, response: Response) {
         const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-        await this.reportGoogleSsoDebug('google_sso_backend_start', {
-            hypothesisId: 'C',
-            hasConfiguredClientId: !!clientId,
-            clientIdSuffix: clientId ? clientId.slice(-24) : null,
-            credentialLength: credential?.length ?? 0,
-        });
 
         if (!clientId) {
-            await this.reportGoogleSsoDebug('google_sso_backend_missing_client_id', {
-                hypothesisId: 'C',
-            });
             throw new BadRequestException('Google sign in is not configured');
         }
 
@@ -289,32 +195,12 @@ export class AuthService {
             params: { id_token: credential },
         });
 
-        await this.reportGoogleSsoDebug('google_sso_backend_tokeninfo_received', {
-            hypothesisId: 'C',
-            audience: payload.aud ?? null,
-            audienceMatches: payload.aud === clientId,
-            hasSub: !!payload.sub,
-            hasEmail: !!payload.email,
-            emailVerified: payload.email_verified ?? null,
-        });
-
         if (payload.aud !== clientId) {
-            await this.reportGoogleSsoDebug('google_sso_backend_audience_mismatch', {
-                hypothesisId: 'C',
-                audience: payload.aud ?? null,
-                clientIdSuffix: clientId.slice(-24),
-            });
             throw new UnauthorizedException('Google token audience mismatch');
         }
 
         const isEmailVerified = payload.email_verified === true || payload.email_verified === 'true';
         if (!payload?.sub || !payload.email || !isEmailVerified) {
-            await this.reportGoogleSsoDebug('google_sso_backend_invalid_google_account', {
-                hypothesisId: 'C',
-                hasSub: !!payload?.sub,
-                hasEmail: !!payload.email,
-                emailVerified: isEmailVerified,
-            });
             throw new UnauthorizedException('Invalid Google account');
         }
 
@@ -326,11 +212,6 @@ export class AuthService {
             'User';
 
         let user = await this.userService.findUserByEmail(email);
-        await this.reportGoogleSsoDebug('google_sso_backend_user_lookup', {
-            hypothesisId: 'E',
-            email,
-            userFound: !!user,
-        });
 
         if (!user) {
             const createdUser = await this.userService.createGoogleUser({
@@ -341,29 +222,14 @@ export class AuthService {
                 picture: payload.picture,
             });
             user = { ...createdUser, password: '' } as DbUser;
-            await this.reportGoogleSsoDebug('google_sso_backend_user_created', {
-                hypothesisId: 'E',
-                userId: user.id,
-                email,
-            });
         } else {
             await this.userService.upsertGoogleMetadata(user.id, {
                 googleId: payload.sub,
                 picture: payload.picture,
             });
             user = await this.userService.getUserById(user.id);
-            await this.reportGoogleSsoDebug('google_sso_backend_user_linked', {
-                hypothesisId: 'E',
-                userId: user.id,
-                email,
-            });
         }
 
-        await this.reportGoogleSsoDebug('google_sso_backend_attach_session', {
-            hypothesisId: 'E',
-            userId: user.id,
-            email,
-        });
         return response.json(await this.attachSessionCookies(user, response));
     }
 
@@ -521,7 +387,7 @@ export class AuthService {
     }
 
     // ---------- REFRESH TOKEN ----------
-    async refreshToken(response: Response): Promise<{ accessToken: string }> {
+    async refreshToken(response: Response): Promise<{ accessToken: string; tokenType: string; expiresAt: Date }> {
         const refreshToken = response.req.cookies['refreshToken'];
         if (!refreshToken) throw new UnauthorizedException('Refresh token not found');
 
@@ -562,7 +428,11 @@ export class AuthService {
             path: '/auth/refresh',
         });
 
-        return { accessToken: newAccessToken };
+        return {
+            accessToken: newAccessToken,
+            tokenType: 'Bearer',
+            expiresAt: newAccessExpiresAt,
+        };
     }
 
     // ---------- LOGOUT ----------

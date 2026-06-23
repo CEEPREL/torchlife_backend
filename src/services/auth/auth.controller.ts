@@ -25,6 +25,10 @@ class TokenResponseDto {
   expiresAt: string;
 }
 
+class SignUpResponseDto extends TokenResponseDto {
+  user: UserDto;
+}
+
 @ApiTags('Auth')
 @ApiCommonErrors()
 @Controller('auth')
@@ -51,11 +55,18 @@ export class AuthController implements IAuth {
     summary: 'Register a new user',
     description: 'Creates a new user account and sends a verification email OTP.',
   })
-  @ApiStandardResponse(UserDto, 201, 'User registered successfully')
+  @ApiStandardResponse(SignUpResponseDto, 201, 'User registered successfully')
   async signUp(
     @Body() signUpDto: SignUpDto,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ data: Omit<DbUser, 'password'> }> {
+  ): Promise<{
+    data: {
+      user: Omit<DbUser, 'password'>;
+      accessToken: string;
+      tokenType: string;
+      expiresAt: Date;
+    };
+  }> {
     return this.authService.signUp(signUpDto, response);
   }
 
@@ -157,7 +168,11 @@ export class AuthController implements IAuth {
   })
   @ApiStandardResponse(AuthResponseDto, 200, 'Logged out successfully')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const accessToken = req.cookies['accessToken'];
+    const accessToken =
+      req.cookies['accessToken'] ??
+      (req.headers.authorization?.startsWith('Bearer ')
+        ? req.headers.authorization.slice(7)
+        : undefined);
 
     if (accessToken) {
       const decoded = this.authService.verifyAccessToken(accessToken);
