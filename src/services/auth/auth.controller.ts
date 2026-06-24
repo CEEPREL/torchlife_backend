@@ -182,7 +182,7 @@ export class AuthController implements IAuth {
     const isProd = this.configService.getOrThrow('NODE_ENV') === 'production';
     const sameSite = isProd ? 'none' : 'lax';
     res.clearCookie('accessToken', { httpOnly: true, secure: isProd, sameSite });
-    res.clearCookie('refreshToken', { httpOnly: true, secure: isProd, sameSite, path: '/auth/refresh' });
+    res.clearCookie('refreshToken', { httpOnly: true, secure: isProd, sameSite, path: '/api/auth/refresh' });
 
     return { message: 'Logged out successfully' };
   }

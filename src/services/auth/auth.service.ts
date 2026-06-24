@@ -388,6 +388,28 @@ export class AuthService {
 
     // ---------- REFRESH TOKEN ----------
     async refreshToken(response: Response): Promise<{ accessToken: string; tokenType: string; expiresAt: Date }> {
+        // #region debug-point E:refresh-cookie-read
+        fetch('http://127.0.0.1:7777/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: 'staging-refresh-cookie',
+                runId: 'pre-fix',
+                hypothesisId: 'E',
+                location: 'src/services/auth/auth.service.ts:390',
+                msg: '[DEBUG] refresh token request received',
+                data: {
+                    originalUrl: response.req.originalUrl ?? null,
+                    path: response.req.path ?? null,
+                    cookieHeader: response.req.headers.cookie ?? null,
+                    parsedCookieKeys: Object.keys(response.req.cookies ?? {}),
+                    hasRefreshTokenCookie: Boolean(response.req.cookies?.refreshToken),
+                    hasAccessTokenCookie: Boolean(response.req.cookies?.accessToken),
+                },
+                ts: Date.now(),
+            }),
+        }).catch(() => undefined);
+        // #endregion
         const refreshToken = response.req.cookies['refreshToken'];
         if (!refreshToken) throw new UnauthorizedException('Refresh token not found');
 
@@ -425,7 +447,7 @@ export class AuthService {
             expires: newRefreshExpiresAt,
             secure: isProd,
             sameSite,
-            path: '/auth/refresh',
+            path: '/api/auth/refresh',
         });
 
         return {
@@ -466,8 +488,42 @@ export class AuthService {
             expires: refreshExpiresAt,
             secure: isProd,
             sameSite,
-            path: '/auth/refresh',
+            path: '/api/auth/refresh',
         });
+
+        // #region debug-point A:cookie-write-config
+        fetch('http://127.0.0.1:7777/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: 'staging-refresh-cookie',
+                runId: 'pre-fix',
+                hypothesisId: 'A',
+                location: 'src/services/auth/auth.service.ts:443',
+                msg: '[DEBUG] auth cookies attached',
+                data: {
+                    accessCookie: {
+                        name: 'accessToken',
+                        httpOnly: true,
+                        secure: isProd,
+                        sameSite,
+                        path: '/',
+                        expiresAt: accessExpiresAt,
+                    },
+                    refreshCookie: {
+                        name: 'refreshToken',
+                        httpOnly: true,
+                        secure: isProd,
+                        sameSite,
+                        path: '/api/auth/refresh',
+                        expiresAt: refreshExpiresAt,
+                    },
+                    responseSetCookieHeader: response.getHeader('set-cookie') ?? null,
+                },
+                ts: Date.now(),
+            }),
+        }).catch(() => undefined);
+        // #endregion
 
         return {
             accessToken,
