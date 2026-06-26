@@ -71,6 +71,8 @@ async function bootstrap() {
     'http://localhost:1011',
     'http://127.0.0.1:1011',
     'https://torchlife.co',
+    'https://staging.torchlife.co',
+    'https://api.staging.torchlife.co',
     'https://torchlife-backend-3lnl.onrender.com',
   ]);
 

@@ -434,19 +434,23 @@ export class AuthService {
 
         const isProd = this.configService.getOrThrow('NODE_ENV') === 'production';
         const sameSite = isProd ? 'none' : 'lax';
+        const cookieDomain = this.configService.get('COOKIE_DOMAIN');
 
-        response.cookie('accessToken', newAccessToken, {
+        const commonCookieOptions = {
             httpOnly: true,
-            expires: newAccessExpiresAt,
             secure: isProd,
             sameSite,
+            ...(cookieDomain && { domain: cookieDomain }),
+        };
+
+        response.cookie('accessToken', newAccessToken, {
+            ...commonCookieOptions,
+            expires: newAccessExpiresAt,
         });
 
         response.cookie('refreshToken', newRefreshToken, {
-            httpOnly: true,
+            ...commonCookieOptions,
             expires: newRefreshExpiresAt,
-            secure: isProd,
-            sameSite,
             path: '/api/auth/refresh',
         });
 
@@ -475,19 +479,23 @@ export class AuthService {
 
         const isProd = this.configService.getOrThrow('NODE_ENV') === 'production';
         const sameSite = isProd ? 'none' : 'lax';
+        const cookieDomain = this.configService.get('COOKIE_DOMAIN');
 
-        response.cookie('accessToken', accessToken, {
+        const commonCookieOptions = {
             httpOnly: true,
-            expires: accessExpiresAt,
             secure: isProd,
             sameSite,
+            ...(cookieDomain && { domain: cookieDomain }),
+        };
+
+        response.cookie('accessToken', accessToken, {
+            ...commonCookieOptions,
+            expires: accessExpiresAt,
         });
 
         response.cookie('refreshToken', refreshToken, {
-            httpOnly: true,
+            ...commonCookieOptions,
             expires: refreshExpiresAt,
-            secure: isProd,
-            sameSite,
             path: '/api/auth/refresh',
         });
 
