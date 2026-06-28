@@ -46,6 +46,7 @@ async function bootstrap() {
     .addTag('Payments', 'Paystack payment initialization and webhook handling')
     .addTag('Uploads', 'Medical and proof document management via Cloudinary')
     .addTag('Admin', 'Internal administrative and verification workflows')
+    .addTag('Wallet', 'Crypto deposits via Breet')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -64,6 +65,7 @@ async function bootstrap() {
       .map((origin) => origin.trim())
       .filter(Boolean)),
     'http://localhost:3000',
+    'http://localhost:8080',
     'http://localhost:3001',
     'http://127.0.0.1:3000',
     'http://localhost:1011',
@@ -100,7 +102,7 @@ async function bootstrap() {
   });
 
   console.log('✅ App initialized. Listening soon...');
-  await app.listen(process.env.PORT || 3000, '0.0.0.0');
-  console.log('Server listening successfully, running on PORT:', process.env.PORT || 3000);
+  await app.listen(process.env.PORT || 8080, '0.0.0.0');
+  console.log('Server listening successfully, running on PORT:', process.env.PORT || 8080);
 }
 bootstrap();

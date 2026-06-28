@@ -11,6 +11,8 @@ import { UploadModule } from './services/upload/upload.module';
 import { CampaignModule } from './services/campaign/campaign.module';
 import { BullModule } from '@nestjs/bull';
 import { RedisHealthService } from './health/redis-health.service';
+import { WalletModule } from './services/payments/breet/wallet/wallet.module';
+import { BreetModule } from './services/payments/breet/breet.module'; 
 
 @Module({
     imports: [
@@ -27,6 +29,8 @@ import { RedisHealthService } from './health/redis-health.service';
         }),
         UploadModule,
         CampaignModule,
+        WalletModule,
+        BreetModule,
     ],
     controllers: [AppController],
     providers: [AppService, EmailTransportService, RedisHealthService],

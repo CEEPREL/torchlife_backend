@@ -81,20 +81,20 @@ export class AuthService {
                 expiryDate: otpExpiresAt,
             });
 
-            const htmlContent = await render(
-                VerifyEmail({
-                    code: otp.toString(),
-                    firstName: user.first_name!,
-                }),
-            );
+            // const htmlContent = await render(
+            //     VerifyEmail({
+            //         code: otp.toString(),
+            //         firstName: user.first_name!,
+            //     }),
+            // );
 
-            await this.emailTransportService.sendMail({
-                to: user.email,
-                subject: 'Welcome to Torchlife!',
-                name: `${user.first_name} ${user.last_name}`,
-                content: htmlContent,
-                templateName: 'verify-email',
-            });
+            // await this.emailTransportService.sendMail({
+            //     to: user.email,
+            //     subject: 'Welcome to Torchlife!',
+            //     name: `${user.first_name} ${user.last_name}`,
+            //     content: htmlContent,
+            //     templateName: 'verify-email',
+            // });
 
             const { id, ...result } = user;
             return { data: result };

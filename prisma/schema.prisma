@@ -122,6 +122,7 @@ enum CAMPAIGN_PRIORITY {
 enum CURRENCY {
   NGN
   USD
+  CRYPTO
 }
 
 model Campaign {
