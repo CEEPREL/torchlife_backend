@@ -1,6 +1,5 @@
 import { Text } from '@react-email/components';
 import Layout from './reuseable/layout';
-// import Layout from "./reuseable/layout";
 
 interface DropboxResetPasswordEmailProps {
     firstName: string;
@@ -13,7 +12,7 @@ export const VerifyEmail = ({ firstName, code }: DropboxResetPasswordEmailProps)
             <div>
                 <Text style={text}>Use the code below to complete your email verification:</Text>
                 <code style={codeStyle}>{code}</code>
-                <Text style={text}>To keep your account secure, please don&apos;t forward this email to anyone.</Text>
+                <Text style={text}>To keep your account secure, please don&apos;t forward this email to anyone...</Text>
             </div>
         </Layout>
     );

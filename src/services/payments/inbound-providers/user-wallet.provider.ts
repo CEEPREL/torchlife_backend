@@ -3,7 +3,7 @@ import { PaymentGatewayService } from 'src/domain/interface/payment-provider.int
 
 @Injectable()
 export class WalletPaymentGatewayService implements PaymentGatewayService {
-    async initializePayment({ amount, tx_ref, currency, userId }) {
+    async initializePayment({ amount, tx_ref, currency, email }) {
         // Call Wallet init endpoint
         return {
             authorization_url: 'wallet://payment',

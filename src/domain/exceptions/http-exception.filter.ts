@@ -43,11 +43,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
         if (exception instanceof HttpException) {
             const errorStatus = exception.getStatus();
+            const resolvedMessage =
+                typeof message === 'string'
+                    ? message
+                    : Array.isArray(message?.message)
+                        ? message.message.filter(Boolean).join(', ')
+                        : typeof message?.message === 'string'
+                            ? message.message
+                            : message;
 
             if (errorStatus === HttpStatus.INTERNAL_SERVER_ERROR) {
                 clientMessage = 'Something went wrong.';
             } else {
-                clientMessage = typeof message === 'string' ? message : message.message || message;
+                clientMessage = resolvedMessage;
             }
         } else {
             clientMessage = 'Something went wrong...';
@@ -55,6 +63,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
         // Send response to client
         response.status(status).json({
+            success: false,
             statusCode: status,
             error:
                 HttpStatus[status] === undefined

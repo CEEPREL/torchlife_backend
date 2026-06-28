@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import axios from 'axios';
 import { PaymentGatewayService } from 'src/domain/interface/payment-provider.interface';
 import { InitializePaymentDto } from '../dto/initialize-payment.dto';
@@ -7,22 +7,7 @@ import { InitializeResponseEntity } from '../entities/initialized-payment-respon
 @Injectable()
 export class PaystackInboundService implements PaymentGatewayService {
     private readonly secretKey = process.env.PAYSTACK_SECRET_KEY || '';
-
-    private readonly currencyToProviderKey: Record<string, PaystackProviderKey> = {
-        NGN: 'paystack_ngn',
-        USD: 'paystack_usd',
-    };
-
-    private readonly endpoints: Record<PaystackProviderKey, { initialize: string; verify: (ref: string) => string }> = {
-        paystack_ngn: {
-            initialize: `${process.env.PAYSTACK_URL}/transaction/initialize`,
-            verify: (ref: string) => `${process.env.PAYSTACK_URL}/transaction/verify/${ref}`,
-        },
-        paystack_usd: {
-            initialize: `${process.env.PAYSTACK_USD_URL}/init-payment`,
-            verify: (ref: string) => `${process.env.PAYSTACK_USD_URL}/verify-payment/${ref}`,
-        },
-    };
+    private readonly baseUrl = process.env.PAYSTACK_URL || 'https://api.paystack.co';
 
     private get headers() {
         return {
@@ -32,37 +17,28 @@ export class PaystackInboundService implements PaymentGatewayService {
     }
 
     async initializePayment(data: InitializePaymentDto): Promise<InitializeResponseEntity> {
-        const { userId, amount, tx_ref, currency, wallet_id, provider } = data;
-
-        const providerKey = provider || this.currencyToProviderKey[currency?.toUpperCase()];
-        if (!providerKey || !this.endpoints[providerKey as PaystackProviderKey]) {
-            throw new BadRequestException(`Unsupported currency: ${currency}`);
-        }
+        const { email, amount, tx_ref, currency, metadata, channels, callback_url } = data;
 
         const payload = {
-            amount: amount * 100,
-            email: userId,
-            subaccount: process.env.PAYSTACK_SUBACCOUNT_CODE || 'ACCT_8agl4nkdiebpkuk',
-            transaction_charge: Number(process.env.PAYSTACK_CHARGE) || 15000,
-            metadata: {
-                tx_ref,
-                currency,
-                wallet_id,
-            },
+            amount: String(amount * 100),
+            email,
+            currency,
+            reference: tx_ref,
+            metadata: JSON.stringify(metadata ?? {}),
+            channels,
+            callback_url,
         };
 
         try {
-            const endpoint = this.endpoints[providerKey as PaystackProviderKey].initialize;
+            const endpoint = `${this.baseUrl}/transaction/initialize`;
             const response = await axios.post(endpoint, payload, { headers: this.headers });
             const responseData = response.data.data;
 
             return {
-                provider: providerKey,
                 authorization_url: responseData.authorization_url,
                 access_code: responseData.access_code,
                 reference: responseData.reference,
                 currency,
-                wallet_id,
                 amount: amount * 100,
                 tx_ref,
                 ...responseData,
@@ -74,21 +50,26 @@ export class PaystackInboundService implements PaymentGatewayService {
     }
 
     async verifyPayment({ reference, currency }: { reference: string; currency: string }) {
-        const providerKey = this.currencyToProviderKey[currency?.toUpperCase()];
-        if (!providerKey || !this.endpoints[providerKey]) {
-            throw new BadRequestException(`Unsupported currency: ${currency}`);
-        }
-
         try {
-            const endpoint = this.endpoints[providerKey].verify(reference);
+            const endpoint = `${this.baseUrl}/transaction/verify/${reference}`;
             const response = await axios.get(endpoint, { headers: this.headers });
             const data = response.data.data;
+            const metadata =
+                typeof data.metadata === 'string'
+                    ? JSON.parse(data.metadata || '{}')
+                    : (data.metadata ?? {});
 
             return {
                 success: data.status === 'success',
                 amount: data.amount / 100,
                 currency: data.currency,
-                provider: providerKey,
+                provider: 'paystack',
+                channel: data.channel ?? null,
+                gatewayResponse: data.gateway_response ?? null,
+                reference: data.reference,
+                paidAt: data.paid_at ?? null,
+                transactionId: data.id ?? null,
+                metadata,
                 raw: response.data,
             };
         } catch (err) {

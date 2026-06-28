@@ -1,28 +1,11 @@
-FROM node:20-alpine
-
+FROM node:20-bookworm
 WORKDIR /usr/src/app
-
-# system deps (keep only what you need)
-RUN apk add --no-cache curl postgresql-client
-
-# enable yarn via corepack
-RUN corepack enable
-
-# copy dependency files first (for caching)
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn/ .yarn/
-
-RUN yarn install --immutable
-
-# copy full project
+RUN node .yarn/releases/yarn-4.16.0.cjs install --immutable
 COPY . .
-
-# prisma generate
+RUN chmod +x scripts/*.sh
 RUN npx prisma generate
-
-# build app
-RUN yarn build
-
+RUN node .yarn/releases/yarn-4.16.0.cjs build
 EXPOSE 3000
-
-CMD ["node", "dist/main.js"]
+CMD ["./scripts/start.sh", "node", "dist/main.js"]

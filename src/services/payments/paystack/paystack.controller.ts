@@ -1,14 +1,13 @@
-import { Body, Controller, Headers, HttpCode, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiTags, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
+import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiTags, ApiBearerAuth, ApiHeader, ApiParam } from '@nestjs/swagger';
 import { Request } from 'express';
 import * as crypto from 'crypto';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtAuthGuard } from 'src/shared/guard/jwt-auth.guard';
 import { CurrentUser } from 'src/shared/decorators/current-user';
 import { AuthUser } from 'src/shared/types/token-payload.types';
 import { InitializePaystackDonationDto } from './dto/initialize-paystack-donation.dto';
-import { PaystackInboundService } from '../inbound-providers/paystack.provider';
 import { ApiStandardResponse, ApiCommonErrors } from 'src/shared/decorators/swagger.decorator';
+import { PaystackService } from './paystack.service';
 
 class PaymentInitResponseDto {
   // Define response
@@ -18,90 +17,63 @@ class AuthResponseDto {
   // Shared empty response for success messages
 }
 
+class DonationHistoryResponseDto {
+  // Donation history response
+}
+
 @ApiTags('Payments')
 @ApiCommonErrors()
 @Controller('payments/paystack')
 export class PaystackPaymentsController {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly paystack: PaystackInboundService,
+    private readonly paystackService: PaystackService,
   ) { }
 
-  @ApiBearerAuth('access-token')
-  @UseGuards(JwtAuthGuard)
   @Post('initialize')
   @ApiOperation({
     summary: 'Initialize donation',
     description:
-      'Creates a pending donation and payment record, then returns a Paystack checkout URL for the donor.',
+      'Creates a pending donation and payment record for a donor email, then returns a Paystack checkout URL.',
   })
   @ApiStandardResponse(PaymentInitResponseDto, 201, 'Payment initialized successfully')
-  async initializeDonation(@CurrentUser() user: AuthUser, @Body() dto: InitializePaystackDonationDto) {
-    const donor = await this.prisma.user.findUnique({ where: { id: user.id } });
-    if (!donor) throw new UnauthorizedException('User not found');
+  async initializeDonation(@Body() dto: InitializePaystackDonationDto) {
+    return this.paystackService.initializeDonation(dto);
+  }
 
-    const donation = await this.prisma.donation.create({
-      data: {
-        amount: dto.amount,
-        status: 'PENDING',
-        user_id: donor.id,
-        campaign_id: dto.campaignId,
-      },
-    });
+  @Get('verify/:reference')
+  @ApiOperation({
+    summary: 'Verify a Paystack transaction',
+    description:
+      'Verifies a Paystack transaction by reference, reconciles internal records, and prevents duplicate processing.',
+  })
+  @ApiParam({ name: 'reference', description: 'The Paystack transaction reference' })
+  @ApiStandardResponse(AuthResponseDto, 200, 'Payment verified')
+  async verifyTransaction(@Param('reference') reference: string) {
+    return this.paystackService.verifyTransaction(reference);
+  }
 
-    const platformFeeAmount = Math.round(dto.amount * 0.02);
-    const beneficiaryAmount = dto.amount - platformFeeAmount;
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  @Get('history')
+  @ApiOperation({
+    summary: 'Get authenticated user donation history',
+    description:
+      'Returns donation payments for the authenticated user so the dashboard reads backend payment records only.',
+  })
+  @ApiStandardResponse(DonationHistoryResponseDto, 200, 'Donation history retrieved')
+  async getDonationHistory(@CurrentUser() user: AuthUser) {
+    return this.paystackService.getDonationHistory(user);
+  }
 
-    const init = await this.paystack.initializePayment({
-      userId: donor.email,
-      amount: dto.amount,
-      tx_ref: donation.id,
-      currency: dto.currency ?? 'NGN',
-      wallet_id: dto.campaignId,
-      provider: undefined as any,
-    });
-
-    const payment = await this.prisma.payment.create({
-      data: {
-        amount: dto.amount,
-        status: 'PENDING',
-        tx_ref: init.reference,
-        custom_tx_ref: donation.id,
-        type: 'DEPOSIT',
-        currency: (dto.currency ?? 'NGN') as any,
-        provider: 'paystack',
-        donation_id: donation.id,
-        user_id: donor.id,
-        meta: {
-          fees: {
-            platformFeePercent: 0.02,
-            platformFeeAmount,
-            beneficiaryAmount,
-            paystackChargeAmount: null,
-          },
-          paystack: {
-            reference: init.reference,
-          },
-        },
-      },
-    });
-
-    return {
-      data: {
-        donationId: donation.id,
-        paymentId: payment.id,
-        authorizationUrl: init.authorization_url,
-        reference: init.reference,
-        amount: dto.amount,
-        currency: dto.currency ?? 'NGN',
-        fees: {
-          platformFeePercent: 0.02,
-          platformFeeAmount,
-          beneficiaryAmount,
-          paystackChargeAmount: null,
-        },
-      },
-    };
+  @Get('ticker')
+  @ApiOperation({
+    summary: 'Get recent verified donation activity',
+    description:
+      'Returns a small rolling list of recent successful donations for the public donation ticker. Uses anonymous or philanthropic labels only.',
+  })
+  @ApiStandardResponse(DonationHistoryResponseDto, 200, 'Recent donation activity retrieved')
+  async getRecentDonationTicker() {
+    return this.paystackService.getRecentDonationTicker();
   }
 
   @Post('webhook')
@@ -134,52 +106,11 @@ export class PaystackPaymentsController {
       throw new UnauthorizedException('Invalid Paystack signature');
     }
 
-    const event: any = req.body;
-    const reference = event?.data?.reference;
-    const currency = event?.data?.currency ?? 'NGN';
-
-    if (!reference) {
-      return { data: { received: true, ignored: true } };
-    }
-
-    const verification = await this.paystack.verifyPayment({ reference, currency });
-    const payment = await this.prisma.payment.findFirst({ where: { tx_ref: reference } });
-
-    const webhookRow = await this.prisma.webhook.create({
-      data: {
-        event,
-        payment_id: payment?.id ?? null,
-      } as any,
+    const event = req.body as Record<string, any>;
+    void this.paystackService.processWebhookEvent(event).catch((error) => {
+      console.error('Failed to process Paystack webhook', error);
     });
 
-    if (!payment) {
-      return { data: { received: true, verified: verification.success, webhookId: webhookRow.id } };
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: { status: verification.success ? 'SUCCESS' : 'FAILED', synced_at: new Date() },
-      });
-
-      if (payment.donation_id) {
-        await tx.donation.update({
-          where: { id: payment.donation_id },
-          data: { status: verification.success ? 'SUCCESS' : 'FAILED' },
-        });
-
-        if (verification.success) {
-          const donation = await tx.donation.findUnique({ where: { id: payment.donation_id } });
-          if (donation) {
-            await tx.campaign.update({
-              where: { id: donation.campaign_id },
-              data: { amount_raised: { increment: donation.amount } },
-            });
-          }
-        }
-      }
-    });
-
-    return { data: { received: true, verified: verification.success, webhookId: webhookRow.id } };
+    return { data: { received: true } };
   }
 }

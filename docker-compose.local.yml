@@ -1,18 +1,12 @@
 services:
   app:
     build: .
-    command: ["./scripts/start.sh", "yarn", "start:dev"]
+    command: ["./scripts/start.sh", "node", ".yarn/releases/yarn-4.16.0.cjs", "start:dev"]
     env_file:
       - .env
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-torchlife}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-torchlife}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/torchlife}
+      REDIS_URL: redis://redis:6379
       PORT: 3000
     depends_on:
       postgres:
@@ -26,7 +20,7 @@ services:
       - /usr/src/app/node_modules
       - ./backups:/backups
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/health >/dev/null || exit 1"]
+      test: ["CMD", "node", "scripts/wait-for-http.mjs", "http://127.0.0.1:3000/api/health", "1", "1000"]
       interval: 10s
       timeout: 5s
       retries: 10

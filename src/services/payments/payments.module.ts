@@ -6,14 +6,19 @@ import { PaymentGatewayResolver } from './queue-process/inbound-payment.resolver
 import { PaystackInboundService } from './inbound-providers/paystack.provider';
 import { WalletPaymentGatewayService } from './inbound-providers/user-wallet.provider';
 import { PaystackPaymentsController } from './paystack/paystack.controller';
+import { PaystackWebhookController } from './paystack/paystack-webhook.controller';
+import { PaystackService } from './paystack/paystack.service';
+import { EmailModule } from '../email-transport/email-transport.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
-    imports: [BullModule.registerQueue({ name: 'payment' })],
-    controllers: [PaystackPaymentsController],
+    imports: [BullModule.registerQueue({ name: 'payment' }), EmailModule, UserModule],
+    controllers: [PaystackPaymentsController, PaystackWebhookController],
     providers: [
         PaymentsService,
         PaymentsProcessor,
         PaystackInboundService,
+        PaystackService,
         PaymentGatewayResolver,
         WalletPaymentGatewayService,
     ],

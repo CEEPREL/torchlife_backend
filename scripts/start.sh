@@ -2,13 +2,6 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-
-POSTGRES_HOST=${POSTGRES_HOST:-postgres}
-POSTGRES_PORT=${POSTGRES_PORT:-5432}
-POSTGRES_USER=${POSTGRES_USER:-postgres}
-POSTGRES_DB=${POSTGRES_DB:-torchlife}
-REDIS_HOST=${REDIS_HOST:-redis}
-REDIS_PORT=${REDIS_PORT:-6379}
 PORT=${PORT:-3000}
 
 DB_WAIT_RETRIES=${DB_WAIT_RETRIES:-30}
@@ -18,39 +11,15 @@ WAIT_SLEEP_SECONDS=${WAIT_SLEEP_SECONDS:-2}
 APP_HEALTHCHECK_URL=${APP_HEALTHCHECK_URL:-http://127.0.0.1:${PORT}/api/health}
 
 wait_for_postgres() {
-  echo "Waiting for PostgreSQL at ${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}..."
-  attempt=1
-  while [ "$attempt" -le "$DB_WAIT_RETRIES" ]; do
-    if pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
-      echo "PostgreSQL is ready."
-      return 0
-    fi
-
-    echo "PostgreSQL not ready yet (${attempt}/${DB_WAIT_RETRIES})."
-    attempt=$((attempt + 1))
-    sleep "$WAIT_SLEEP_SECONDS"
-  done
-
-  echo "PostgreSQL did not become ready in time." >&2
-  return 1
+  node "$SCRIPT_DIR/wait-for-postgres.mjs" \
+    "$DB_WAIT_RETRIES" \
+    $((WAIT_SLEEP_SECONDS * 1000))
 }
 
 wait_for_redis() {
-  echo "Waiting for Redis at ${REDIS_HOST}:${REDIS_PORT}..."
-  attempt=1
-  while [ "$attempt" -le "$REDIS_WAIT_RETRIES" ]; do
-    if [ "$(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping 2>/dev/null || true)" = "PONG" ]; then
-      echo "Redis is ready."
-      return 0
-    fi
-
-    echo "Redis not ready yet (${attempt}/${REDIS_WAIT_RETRIES})."
-    attempt=$((attempt + 1))
-    sleep "$WAIT_SLEEP_SECONDS"
-  done
-
-  echo "Redis did not become ready in time." >&2
-  return 1
+  node "$SCRIPT_DIR/wait-for-redis.mjs" \
+    "$REDIS_WAIT_RETRIES" \
+    $((WAIT_SLEEP_SECONDS * 1000))
 }
 
 wait_for_app_health() {
@@ -62,7 +31,7 @@ wait_for_app_health() {
       return 1
     fi
 
-    if curl -fsS "$APP_HEALTHCHECK_URL" >/dev/null 2>&1; then
+    if node "$SCRIPT_DIR/wait-for-http.mjs" "$APP_HEALTHCHECK_URL" 1 100 >/dev/null 2>&1; then
       echo "Application health endpoint is healthy."
       return 0
     fi

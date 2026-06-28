@@ -65,13 +65,13 @@ Present in `env.example` and used in code:
 - `PAYSTACK_URL`, `PAYSTACK_SECRET_KEY`: [src/services/payments/inbound-providers/paystack.provider.ts](file:///Users/admin/Documents/ceeprel/torchlife_backend/src/services/payments/inbound-providers/paystack.provider.ts#L8-L33)
 
 Used in code but missing from `env.example` (must be added or removed):
-- `REDIS_HOST`, `REDIS_PORT`: [src/app.module.ts](file:///Users/admin/Documents/ceeprel/torchlife_backend/src/app.module.ts#L23-L28)
+- `REDIS_URL`: [app.module.ts](file:///Users/admin/Documents/ceeprel/torchlife_backend/src/app.module.ts#L22-L27)
 - `resetPasswordURL`: [src/services/auth/auth.service.ts](file:///Users/admin/Documents/ceeprel/torchlife_backend/src/services/auth/auth.service.ts#L227-L245)
 - `APP_BASE_URL`: [src/domain/email-templates/utils/constants.ts](file:///Users/admin/Documents/ceeprel/torchlife_backend/src/domain/email-templates/utils/constants.ts#L1)
 - `PAYSTACK_USD_URL`, `PAYSTACK_SUBACCOUNT_CODE`, `PAYSTACK_CHARGE`: [src/services/payments/inbound-providers/paystack.provider.ts](file:///Users/admin/Documents/ceeprel/torchlife_backend/src/services/payments/inbound-providers/paystack.provider.ts#L16-L53)
 
 Also present in `env.example` but not found used (from the files audited):
-- `CORS_PROD`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (**UNKNOWN** if used elsewhere; not found in the scanned matches).
+- `CORS_PROD` (**UNKNOWN** if used elsewhere; not found in the scanned matches).
 
 ---
 
@@ -390,4 +390,3 @@ This mapping is based only on code present in repo. The handbook itself is not s
    - Evidence: [src/auth/auth.service.ts](file:///Users/admin/Documents/ceeprel/torchlife_backend/src/auth/auth.service.ts) vs [src/services/auth/auth.service.ts](file:///Users/admin/Documents/ceeprel/torchlife_backend/src/services/auth/auth.service.ts)
 10. Remove sensitive debug logging (e.g., dumping all users on lookup failure) and replace with safe structured logs.  
    - Evidence: [user.service.ts](file:///Users/admin/Documents/ceeprel/torchlife_backend/src/services/user/user.service.ts#L12-L31)
-

@@ -9,6 +9,7 @@ import {
   UploadedFile,
   UseInterceptors,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 
 import { UploadService } from 'src/services/upload/upload.service';
@@ -24,7 +25,9 @@ import {
   ApiConsumes,
   ApiBody,
   ApiParam,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/shared/guard/jwt-auth.guard';
 
 import {
   ApiStandardResponse,
@@ -103,6 +106,8 @@ export class UploadController {
   }
 
   @Post('campaign/:campaignId')
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: 'Upload campaign document',
     description:
@@ -144,6 +149,14 @@ export class UploadController {
     @Req() req,
   ) {
     const userId = req.user?.id;
-    return this.uploadService.uploadFile(file, campaignId, userId);
+    return this.uploadService.uploadFile(file, campaignId, userId).then((uploaded) => ({
+      data: {
+        id: uploaded.id,
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+        originalName: uploaded.originalName,
+        mimeType: uploaded.mimeType,
+      },
+    }));
   }
 }
