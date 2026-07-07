@@ -590,10 +590,7 @@ export class CampaignService {
             await this.EmailService.sendEmail(
                 updatedCampaign.user.email,
                 'Your TorchLife campaign has been approved',
-                `
-                updatedCampaign.user.first_name,
-                ${htmlContent},
-                `
+                htmlContent
             );
         }
 

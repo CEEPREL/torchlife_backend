@@ -285,10 +285,7 @@ export class AuthService {
             await this.EmailService.sendEmail(
                 user.email,
                 'Welcome to Torchlife!',
-                `
-                ${user.first_name} ${user.last_name}
-                content: htmlContent,
-                `
+                htmlContent
             );
         }
     }
@@ -356,10 +353,7 @@ export class AuthService {
         await this.EmailService.sendEmail(
             user.email,
             'Password Reset Request',
-            `
-            name: user.first_name,
-            ${htmlContent},
-            `
+            htmlContent
         );
 
         return { msg: 'Password change request sent' };

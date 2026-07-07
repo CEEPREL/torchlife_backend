@@ -596,10 +596,7 @@ export class PaystackService {
             await this.EmailService.sendEmail(
                 payment.donor_email,
                 'TorchLife donation payment successful',
-                `
-                name: firstName,
-                ${htmlContent},
-                `
+                htmlContent
             );
             return;
         }
@@ -620,10 +617,7 @@ export class PaystackService {
         await this.EmailService.sendEmail(
             payment.donor_email,
             'TorchLife donation payment update',
-            `
-            name: firstName,
-            ${htmlContent},
-            `
+            htmlContent
         );
     }
 
