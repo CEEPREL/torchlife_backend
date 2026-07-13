@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import { HttpExceptionFilter } from './domain/exceptions/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
@@ -22,6 +23,7 @@ async function bootstrap() {
       },
     }),
   );
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   const config = new DocumentBuilder()
     .setTitle('TorchLife Backend API')
@@ -46,6 +48,7 @@ async function bootstrap() {
     .addTag('Payments', 'Paystack payment initialization and webhook handling')
     .addTag('Uploads', 'Medical and proof document management via Cloudinary')
     .addTag('Admin', 'Internal administrative and verification workflows')
+    .addTag('Wallet', 'Crypto deposits via Breet')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -59,26 +62,51 @@ async function bootstrap() {
   });
 
   const allowedOrigins = new Set<string>([
-    ...(process.env.CORS_PROD ? [process.env.CORS_PROD] : []),
+    ...((process.env.CORS_PROD || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean)),
     'http://localhost:3000',
+    'http://localhost:8080',
     'http://localhost:3001',
     'http://127.0.0.1:3000',
+    'http://localhost:1011',
+    'http://127.0.0.1:1011',
     'https://torchlife.co',
+    'https://staging.torchlife.co',
+    'https://api.staging.torchlife.co',
     'https://torchlife-backend-3lnl.onrender.com',
-
   ]);
 
+  const isAllowedOrigin = (origin: string) => {
+    if (allowedOrigins.has(origin)) return true;
+
+    try {
+      const { protocol, hostname } = new URL(origin);
+      const isHttpOrigin = protocol === 'http:' || protocol === 'https:';
+      const isTorchlifeDomain =
+        hostname === 'torchlife.co' || hostname.endsWith('.torchlife.co');
+
+      return isHttpOrigin && isTorchlifeDomain;
+    } catch {
+      return false;
+    }
+  };
+
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (
+      origin: string | undefined,
+      callback: (error: Error | null, allow?: boolean) => void,
+    ) => {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.has(origin)) return callback(null, true);
+      if (isAllowedOrigin(origin)) return callback(null, true);
       return callback(new Error('Not allowed by CORS'), false);
     },
     credentials: true,
   });
 
   console.log('✅ App initialized. Listening soon...');
-  await app.listen(process.env.PORT || 3000, '0.0.0.0');
-  console.log('Server listening successfully, running on PORT:', process.env.PORT || 3000);
+  await app.listen(process.env.PORT || 8080, '0.0.0.0');
+  console.log('Server listening successfully, running on PORT:', process.env.PORT || 8080);
 }
 bootstrap();

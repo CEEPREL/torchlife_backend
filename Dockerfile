@@ -1,26 +1,11 @@
-# Base image
-FROM node:20-alpine
-
-# Working directory
+FROM node:20-bookworm
 WORKDIR /usr/src/app
-
-# Copy dependency files first
-COPY package.json yarn.lock ./
-
-# Install dependencies using yarn
-RUN yarn install --frozen-lockfile
-
-# Copy source code
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY .yarn/ .yarn/
+RUN node .yarn/releases/yarn-4.16.0.cjs install --immutable
 COPY . .
-
-# Generate Prisma client
+RUN chmod +x scripts/*.sh
 RUN npx prisma generate
-
-# Build NestJS app
-RUN yarn build
-
-# Expose port
+RUN node .yarn/releases/yarn-4.16.0.cjs build
 EXPOSE 3000
-
-# Run production server
-CMD ["yarn", "start:prod"]
+CMD ["./scripts/start.sh", "node", "dist/main.js"]

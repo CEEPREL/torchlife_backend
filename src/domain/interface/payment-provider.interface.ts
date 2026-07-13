@@ -1,11 +1,13 @@
 export interface PaymentGatewayService {
     initializePayment(data: {
+        email: string;
         amount: number;
         tx_ref: string;
         currency: string;
-        userId: string;
-        metadata?: any;
-    }): Promise<{ authorization_url: string; reference: string }>;
+        metadata?: Record<string, unknown>;
+        channels?: string[];
+        callback_url?: string;
+    }): Promise<{ authorization_url: string; reference: string; access_code?: string }>;
 
     verifyPayment(payload: any): Promise<{
         success: boolean;

@@ -1,8 +1,13 @@
+import type { Prisma } from '@prisma/client';
+
 export class DbDataConstant {
-    static userData = {
+    static userData: Prisma.UserSelect = {
         id: true,
         first_name: true,
         last_name: true,
+        philanthropic_name: true,
+        impact_score: true,
+        emergencies_supported: true,
         email: true,
         phone_number: true,
         role: true,
@@ -12,43 +17,70 @@ export class DbDataConstant {
         updated_at: true,
     };
 
-    static campaignData = {
+    static campaignData: Prisma.CampaignSelect = {
         id: true,
+        user_id: true,
+        public_id: true,
         title: true,
         story: true,
+        records: true,
         priority: true,
         location: true,
+        hospital_name: true,
+        hospital_contact: true,
+        hospital_contact_person_name: true,
         status: true,
+        is_deleted: true,
+        deleted_at: true,
+        deleted_by_id: true,
         deadline: true,
+        extension_status: true,
+        requested_deadline: true,
+        extension_requested_at: true,
+        extension_reviewed_at: true,
         target_amount: true,
         amount_raised: true,
+        certified_pdf: true,
         image_url: true,
+        currency: true,
         type: true,
+        proxyName: true,
+        proxyNote: true,
+        proxyPhone: true,
+        proxyEmail: true,
+        approved_by_id: true,
+        approved_at: true,
+        approval_notes: true,
         created_at: true,
         updated_at: true,
+        donations: {
+            select: {
+                id: true,
+            },
+        },
         user: {
-            select: this.userData,
+            select: DbDataConstant.userData,
         },
         verified_by: {
-            select: this.userData,
+            select: DbDataConstant.userData,
         },
     };
 
-    static donationData = {
+    static donationData: Prisma.DonationSelect = {
         id: true,
         amount: true,
         status: true,
         created_at: true,
         updated_at: true,
         user: {
-            select: this.userData,
+            select: DbDataConstant.userData,
         },
         campaign: {
-            select: this.campaignData,
+            select: DbDataConstant.campaignData,
         },
     };
 
-    static paymentData = {
+    static paymentData: Prisma.PaymentSelect = {
         id: true,
         amount: true,
         tx_ref: true,
@@ -59,25 +91,27 @@ export class DbDataConstant {
         created_at: true,
         updated_at: true,
         user: {
-            select: this.userData,
+            select: DbDataConstant.userData,
         },
         donation: {
-            select: this.donationData,
+            select: DbDataConstant.donationData,
         },
     };
 
-    static walletData = {
+    static walletData: Prisma.WalletSelect = {
         id: true,
         balance: true,
         currency: true,
-        created_at: true,
-        updated_at: true,
+        account_status: true,
         user: {
-            select: this.userData,
+            select: DbDataConstant.userData,
+        },
+        campaign: {
+            select: DbDataConstant.campaignData,
         },
     };
 
-    static walletTransactionData = {
+    static walletTransactionData: Prisma.WalletTransactionSelect = {
         id: true,
         amount: true,
         type: true,
@@ -88,46 +122,42 @@ export class DbDataConstant {
         created_at: true,
         updated_at: true,
         wallet: {
-            select: this.walletData,
+            select: DbDataConstant.walletData,
         },
     };
 
-    static ratingData = {
+    static ratingData: Prisma.RatingSelect = {
         id: true,
         score: true,
         comment: true,
         created_at: true,
         updated_at: true,
         user: {
-            select: this.userData,
+            select: DbDataConstant.userData,
         },
         campaign: {
-            select: this.campaignData,
+            select: DbDataConstant.campaignData,
         },
     };
-    static withdrawalRequestData = {
+    static withdrawalRequestData: Prisma.WithdrawalRequestSelect = {
         id: true,
         amount: true,
         status: true,
-        created_at: true,
-        updated_at: true,
-        user: {
-            select: this.userData,
-        },
-        wallet: {
-            select: this.walletData,
+        reason: true,
+        initiated_at: true,
+        processed_at: true,
+        user_id: true,
+        wallet_id: true,
+        payment: {
+            select: DbDataConstant.paymentData,
         },
     };
-    static webhookData = {
+    static webhookData: Prisma.WebhookSelect = {
         id: true,
-        url: true,
         event: true,
-        created_at: true,
-        updated_at: true,
-    };
-    static paymentProviderData = {
-        id: true,
-        name: true,
+        event_type: true,
+        reference: true,
+        paystack_event_id: true,
         created_at: true,
         updated_at: true,
     };

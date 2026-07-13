@@ -4,7 +4,7 @@ import { UserModule } from '../user/user.module';
 import { UserService } from '../user/user.service';
 import { LocalStrategy } from './strategies/local.strategy';
 import { AuthService } from './auth.service';
-import { EmailTransportModule } from '../email-transport/email-transport.module';
+import { EmailModule } from '../email-transport/email-transport.module';
 import { TokenService } from './token/token.service';
 import { OtpTokenService } from './otp-token.service';
 import { PassportModule } from '@nestjs/passport';
@@ -18,7 +18,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         PassportModule,
         JwtModule.register({}),
         UserModule,
-        EmailTransportModule,
+        EmailModule,
     ],
     exports: [AuthService],
 })

@@ -50,7 +50,15 @@ export class UserDto {
     @IsOptional()
     @IsString()
     @IsNotEmpty()
-    phone_number: string;
+    phone_number?: string;
+
+    @ApiProperty({
+        example: 'Boluwatife',
+        description: 'Preferred philanthropic display name (must be unique)',
+    })
+    @IsString()
+    @IsNotEmpty()
+    philanthropic_name: string;
 
     @ApiProperty({
         enum: UserRole,

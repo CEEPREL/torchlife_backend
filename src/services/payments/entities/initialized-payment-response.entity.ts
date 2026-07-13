@@ -3,7 +3,6 @@ export class InitializeResponseEntity {
     access_code: string;
     reference: string;
     currency?: string;
-    wallet_id: string;
     amount: number;
     tx_ref: string;
 }

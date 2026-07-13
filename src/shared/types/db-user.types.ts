@@ -4,8 +4,9 @@ export interface DbUser {
   id: string;
   first_name: string;
   last_name: string;
+  philanthropic_name: string;
   email: string;
-  phone_number: string;
+  phone_number: string | null;
   password: string;
   isverified: boolean;
   role: UserRole | null;
@@ -14,4 +15,6 @@ export interface DbUser {
   updated_at?: Date;
   deleted_at?: Date | null;
   refreshToken?: string | null;
+  marketing_metadata?: Record<string, unknown> | null;
+  last_marketing_sync_at?: Date | null;
 }
