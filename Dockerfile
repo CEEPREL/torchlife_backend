@@ -1,4 +1,4 @@
-FROM node:24-bookworm
+FROM node:20-bookworm
 WORKDIR /usr/src/app
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn/ .yarn/
