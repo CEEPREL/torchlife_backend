@@ -7,6 +7,6 @@ COPY . .
 RUN chmod +x scripts/*.sh
 RUN npx prisma generate
 RUN node .yarn/releases/yarn-4.16.0.cjs build
-ARG PORT=3000
+ARG PORT=8080
 EXPOSE ${PORT}
 CMD ["./scripts/start.sh", "node", "dist/main.js"]
