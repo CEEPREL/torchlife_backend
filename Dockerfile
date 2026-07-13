@@ -1,4 +1,4 @@
-FROM node:20-bookworm
+FROM node:24-bookworm
 WORKDIR /usr/src/app
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn/ .yarn/
@@ -7,5 +7,6 @@ COPY . .
 RUN chmod +x scripts/*.sh
 RUN npx prisma generate
 RUN node .yarn/releases/yarn-4.16.0.cjs build
-EXPOSE 3000
+ARG PORT=3000
+EXPOSE ${PORT}
 CMD ["./scripts/start.sh", "node", "dist/main.js"]
