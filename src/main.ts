@@ -28,8 +28,8 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('TorchLife Backend API')
     .setDescription(
-      'Professional production-grade API for TorchLife platform. Supports campaigns, secure payments via Paystack, medical document verification, and user authentication.',
-    )
+  'Professional production-grade API for TorchLife platform. Supports campaigns, secure payments via Paystack and VANT, medical document verification, and user authentication.',
+)
     .setVersion('1.0.0')
     .setContact('TorchLife Engineering', 'https://torchlife.co', 'info@torchlife.com')
     .addBearerAuth(

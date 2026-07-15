@@ -43,7 +43,7 @@ export class PaystackInboundService implements PaymentGatewayService {
                 tx_ref,
                 ...responseData,
             } as InitializeResponseEntity;
-        } catch (err) {
+        } catch (err:any) {
             const message = err?.response?.data || err.message || 'Unknown error initializing payment';
             throw new InternalServerErrorException(`Failed to initialize payment: ${JSON.stringify(message)}`);
         }
@@ -72,7 +72,7 @@ export class PaystackInboundService implements PaymentGatewayService {
                 metadata,
                 raw: response.data,
             };
-        } catch (err) {
+        } catch (err:any) {
             const message = err?.response?.data || err.message || 'Unknown error verifying payment';
             throw new InternalServerErrorException(`Failed to verify payment: ${JSON.stringify(message)}`);
         }

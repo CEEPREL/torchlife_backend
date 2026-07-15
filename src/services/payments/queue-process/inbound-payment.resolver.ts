@@ -3,6 +3,7 @@ import { Injectable, Inject, NotFoundException, forwardRef } from '@nestjs/commo
 import { PaymentGatewayService } from 'src/domain/interface/payment-provider.interface';
 import { PaymentProviderKey } from 'src/domain/constants/payment-provider';
 import { PaystackInboundService } from '../inbound-providers/paystack.provider';
+import { VantInboundService } from '../inbound-providers/vant.provider';
 import { WalletPaymentGatewayService } from '../inbound-providers/user-wallet.provider';
 
 @Injectable()
@@ -11,10 +12,12 @@ export class PaymentGatewayResolver {
 
     constructor(
         private readonly paystack: PaystackInboundService,
+        private readonly vant: VantInboundService,
         private readonly userWallet: WalletPaymentGatewayService,
     ) {
         this.providers = {
             paystack: this.paystack,
+            vant: this.vant,
             user_wallet: this.userWallet,
         };
     }
